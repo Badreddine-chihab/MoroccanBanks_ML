@@ -11,21 +11,21 @@ Removed Address, Website, and Phone Number (not necessary for analysis).
 ✅ What We Will Do:
 1️⃣ Review Text
 
-Remove rows where Review Text is "No review text found" (these are not real reviews).
+Remove rows where Review Text is "No review text found" (these are not real reviews). done
 
 2️⃣ Stars
 
 Ensure all values are between 1 and 5.
 
-If any invalid values exist, remove or correct them.
+If any invalid values exist, remove or correct them. done
 
 🔹 Step 3: Remove Unreal or Incorrect Cities
 ✅ What We Will Do:
 1️⃣ Convert all city names to lowercase for consistency.
 2️⃣ Compare city names against a list of real Moroccan cities.
 3️⃣ Remove rows with non-existent or misspelled cities.
+done
 
-📌 Question: Do you have a reference list of valid Moroccan cities, or should I use a general one?
 
 🔹 Step 4: Remove Duplicates
 ✅ What We Will Do:
@@ -36,6 +36,7 @@ Business Name
 Review Text
 
 TrueTimestamp
+done
 
 2️⃣ Remove exact duplicates while keeping unique reviews.
 
@@ -53,7 +54,9 @@ Final Check & Save Cleaned Data
 ✅ Verify the dataset for consistency.
 ✅ Save the cleaned version for further analysis.
 
-            📊 Detailed Plan for Visualization & Analysis
+finally : Split into two datasets (Star Dataset & Review Dataset). done 
+
+📊 Detailed Plan for Visualization & Analysis
 Now that our dataset is clean, we will explore insights through visualizations and analysis before moving to sentiment analysis and prediction.
 
 🔹 Step 1: Exploratory Data Analysis (EDA)
