@@ -60,7 +60,7 @@ finally : Split into two datasets (Star Dataset & Review Dataset). done
 Now that our dataset is clean, we will explore insights through visualizations and analysis before moving to sentiment analysis and prediction.
 
 🔹 Step 1: Exploratory Data Analysis (EDA)
-✅ Overview of Data
+✅ Overview of Data done
 
 Display summary statistics (mean, median, distribution of stars, etc.).
 
@@ -69,15 +69,15 @@ Count of reviews per city and per bank.
 Check for trends in TrueTimestamp (seasonality, peaks in reviews).
 
 🔹 Step 2: Data Visualizations
-✅ Distribution of Star Ratings
+✅ Distribution of Star Ratings done
 
 Histogram or Pie Chart: Show the proportion of 1-star to 5-star reviews.
 
-✅ Top Cities by Review Count
+✅ Top Cities by Review Count done
 
 Bar Chart: Rank cities by the number of reviews.
 
-✅ Most Reviewed Banks
+✅ Most Reviewed Banks 
 
 Bar Chart: Show which banks have the most reviews.
 
