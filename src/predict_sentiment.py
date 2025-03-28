@@ -15,8 +15,3 @@ def predict_sentiment(sample):
     return sentiment_label
 
 
-text = "Excellent. Très bonne banque !Remarque les esprits chagrins qui mettent 1 étoile à wafabank  doivent savoir que wafabank meilleure banque au Maroc et plus n'accueille pas n'importe qui avec le sourire pour des personnes peu claires avec des rentrées d'argent hypothétiques et des projets fumeux."
-predicted_sentiment = predict_sentiment(text)
-print(f"Review: {text}")
-print(f"Predicted Sentiment: {predicted_sentiment}")
-
