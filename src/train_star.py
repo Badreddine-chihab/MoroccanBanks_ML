@@ -22,7 +22,7 @@ X_tfidf = vectorizer.transform(X)
 #split data
 X_train, X_test, y_train, y_test = train_test_split(X_tfidf, y, test_size=0.2, random_state=42)
 # Train Gradient Boosting
-model = GradientBoostingRegressor(n_estimators=200, learning_rate=0.05, random_state=42)
+model = GradientBoostingRegressor(n_estimators=500, learning_rate=0.5, random_state=101)
 model.fit(X_train, y_train)
 # Predict ratings on test data
 y_pred = model.predict(X_test)

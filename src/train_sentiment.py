@@ -29,14 +29,14 @@ model.fit(X_train_tfidf, y_train)
 # Evaluate model
 y_pred = model.predict(X_test_tfidf)
 accuracy = accuracy_score(y_test, y_pred)
-print(f"✅ Sentiment Model Accuracy: {accuracy:.2f}")
+print(f"Sentiment Model Accuracy: {accuracy:.2f}")
 # Save Model & Vectorizer
 joblib.dump(model, "../models/sentiment_model_fr.pkl")
 joblib.dump(tfidf_vectorizer, "../models/tfidf_vectorizer_fr.pkl")
 report = classification_report(y_test, y_pred)
 with open("../reports/classification_report.txt", "w") as f:
     f.write(report)
-cm = confusion_matrix(y_train, y_test)
+cm = confusion_matrix(y_test, y_pred)
 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=["Négatif", "Positif"], yticklabels=["Négatif", "Positif"])
 plt.savefig('../reports/confusion_matrix.png')
 
