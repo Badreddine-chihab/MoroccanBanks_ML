@@ -59,9 +59,6 @@ Install the necessary dependencies:
 
 pip install pandas joblib scikit-learn nltk seaborn matplotlib PyQt5
 
-Running the Sentiment Analyzer
-
-python sentiment_gui.py
 
 This will launch the GUI, allowing users to input reviews and receive sentiment predictions.
 

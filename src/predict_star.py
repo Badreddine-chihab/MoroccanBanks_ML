@@ -271,7 +271,6 @@ if __name__ == '__main__':
     # Test prediction
     test_reviews = [
         "Service excellent, je suis très satisfait!",
-        "Produit correct mais pourrait être amélioré",
         "Très déçu par la qualité, je ne recommande pas",
         "Livraison rapide et produit conforme à mes attentes",
         "Médiocre, ne correspond pas à la description",

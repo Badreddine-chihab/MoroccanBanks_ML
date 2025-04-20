@@ -1,13 +1,148 @@
 import sys
+
+from PyQt5.QtChart import QBarSeries, QChart, QBarSet, QChartView
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QTextEdit, QPushButton, QComboBox, QTabWidget,
-                             QFormLayout, QProgressBar, QListWidget, QMessageBox,
-                             QFileDialog, QStatusBar, QFrame, QSplitter)
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QFont, QIcon, QPixmap, QColor
+                             QFormLayout, QListWidget, QMessageBox, QFileDialog,
+                             QStatusBar, QFrame, QSplitter, QDialog, QTableWidget,
+                             QTableWidgetItem, QGroupBox, QStackedWidget)
+from PyQt5.QtCore import Qt, QSize, QTimer
+from PyQt5.QtGui import QFont, QIcon, QPixmap, QColor, QPalette
 from predict_star import SentimentAnalyzer
-import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
+from matplotlib.figure import Figure
+from datetime import datetime
+import pandas as pd
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class ModernStyle:
+    @staticmethod
+    def setup(app, dark_mode=True):
+        app.setStyle("Fusion")
+
+        if dark_mode:
+            dark_palette = QPalette()
+            dark_palette.setColor(QPalette.Window, QColor(53, 53, 53))
+            dark_palette.setColor(QPalette.WindowText, Qt.white)
+            dark_palette.setColor(QPalette.Base, QColor(35, 35, 35))
+            dark_palette.setColor(QPalette.AlternateBase, QColor(53, 53, 53))
+            dark_palette.setColor(QPalette.ToolTipBase, QColor(25, 25, 25))
+            dark_palette.setColor(QPalette.ToolTipText, Qt.white)
+            dark_palette.setColor(QPalette.Text, Qt.white)
+            dark_palette.setColor(QPalette.Button, QColor(53, 53, 53))
+            dark_palette.setColor(QPalette.ButtonText, Qt.white)
+            dark_palette.setColor(QPalette.BrightText, Qt.red)
+            dark_palette.setColor(QPalette.Link, QColor(42, 130, 218))
+            dark_palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
+            dark_palette.setColor(QPalette.HighlightedText, QColor(35, 35, 35))
+            app.setPalette(dark_palette)
+        else:
+            app.setPalette(app.style().standardPalette())
+
+    @staticmethod
+    def get_stylesheet(dark_mode=True):
+        if dark_mode:
+            return """
+                QMainWindow {
+                    background-color: #2D2D2D;
+                }
+                QTextEdit, QListWidget, QTableWidget {
+                    background-color: #353535;
+                    color: #FFFFFF;
+                    border: 1px solid #444;
+                    border-radius: 4px;
+                    padding: 5px;
+                }
+                QPushButton {
+                    background-color: #3A3A3A;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 8px;
+                    min-width: 80px;
+                }
+                QPushButton:hover {
+                    background-color: #4A4A4A;
+                }
+                QPushButton:pressed {
+                    background-color: #2A2A2A;
+                }
+                QTabWidget::pane {
+                    border: 1px solid #444;
+                    border-radius: 4px;
+                }
+                QTabBar::tab {
+                    background: #3A3A3A;
+                    color: white;
+                    padding: 8px;
+                    border-top-left-radius: 4px;
+                    border-top-right-radius: 4px;
+                }
+                QTabBar::tab:selected {
+                    background: #505050;
+                }
+                QGroupBox {
+                    border: 1px solid #444;
+                    border-radius: 4px;
+                    margin-top: 10px;
+                    padding-top: 15px;
+                }
+                QGroupBox::title {
+                    subcontrol-origin: margin;
+                    left: 10px;
+                }
+            """
+        else:
+            return """
+                QMainWindow {
+                    background-color: #F5F5F5;
+                }
+                QTextEdit, QListWidget, QTableWidget {
+                    background-color: white;
+                    color: #333333;
+                    border: 1px solid #DDD;
+                    border-radius: 4px;
+                    padding: 5px;
+                }
+                QPushButton {
+                    background-color: #E0E0E0;
+                    color: #333333;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 8px;
+                    min-width: 80px;
+                }
+                QPushButton:hover {
+                    background-color: #D0D0D0;
+                }
+                QPushButton:pressed {
+                    background-color: #C0C0C0;
+                }
+                QTabWidget::pane {
+                    border: 1px solid #DDD;
+                    border-radius: 4px;
+                }
+                QTabBar::tab {
+                    background: #E0E0E0;
+                    color: #333333;
+                    padding: 8px;
+                    border-top-left-radius: 4px;
+                    border-top-right-radius: 4px;
+                }
+                QTabBar::tab:selected {
+                    background: white;
+                }
+                QGroupBox {
+                    border: 1px solid #DDD;
+                    border-radius: 4px;
+                    margin-top: 10px;
+                    padding-top: 15px;
+                }
+            """
 
 # Modern color palette
 COLORS = {
@@ -28,41 +163,44 @@ class SentimentAnalysisApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.analyzer = None
+        self.history_data = []
+        self.dark_mode = True
         self.initUI()
         self.load_models()
 
     def initUI(self):
-        """Initialize the main UI components"""
-        self.setWindowTitle("Advanced Sentiment Analyzer")
+        self.setWindowTitle("Sentiment Analysis Pro")
         self.setGeometry(100, 100, 1200, 800)
         self.setWindowIcon(QIcon('../assets/oujda.png'))
 
-        # Central widget and main layout
+        # Central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QHBoxLayout(central_widget)
+        main_layout.setContentsMargins(10, 10, 10, 10)
 
-        # Create a splitter for resizable panels
+        # Create splitter
         splitter = QSplitter(Qt.Horizontal)
 
-        # Left panel - Input and controls
+        # Left panel - Input controls
         left_panel = QWidget()
-        left_panel.setMaximumWidth(400)
+        left_panel.setMaximumWidth(350)
         left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(5, 5, 5, 5)
 
         # App header
-        header = QLabel("Sentiment Analyser ")
-        header.setFont(QFont('Arial', 18, QFont.Bold))
-        header.setStyleSheet(f"color: {COLORS['accent']}; margin-bottom: 20px;")
+        header = QLabel("Sentiment Analysis Pro")
+        header.setFont(QFont('Arial', 16, QFont.Bold))
         left_layout.addWidget(header)
 
-        # Model status
-        self.model_status = QLabel("Model Status: Loading...")
-        self.model_status.setStyleSheet(f"color: {COLORS['neutral']}; font-style: italic;")
-        left_layout.addWidget(self.model_status)
+        # Theme toggle
+        theme_btn = QPushButton("Toggle Dark/Light")
+        theme_btn.clicked.connect(self.toggle_theme)
+        left_layout.addWidget(theme_btn)
 
         # Input tabs
-        input_tabs = QTabWidget()
+        self.input_tabs = QTabWidget()
+        self.input_tabs.setDocumentMode(True)
 
         # Single review tab
         single_tab = QWidget()
@@ -70,181 +208,78 @@ class SentimentAnalysisApp(QMainWindow):
 
         self.review_input = QTextEdit()
         self.review_input.setPlaceholderText("Enter your review text here...")
-        self.review_input.setStyleSheet(f"""
-            QTextEdit {{
-                background: {COLORS['card']};
-                color: {COLORS['foreground']};
-                border: 1px solid {COLORS['secondary']};
-                border-radius: 5px;
-                padding: 10px;
-                min-height: 150px;
-            }}
-        """)
         single_layout.addWidget(self.review_input)
 
-        analyze_btn = QPushButton("Analyze Sentiment")
-        analyze_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {COLORS['primary']};
-                color: white;
-                border: none;
-                border-radius: 5px;
-                padding: 10px;
-                font-weight: bold;
-            }}
-            QPushButton:hover {{
-                background: {COLORS['secondary']};
-            }}
-        """)
+        analyze_btn = QPushButton("Analyze")
         analyze_btn.clicked.connect(self.analyze_single_review)
         single_layout.addWidget(analyze_btn)
 
-        input_tabs.addTab(single_tab, "Single Review")
-
-        # Batch processing tab
+        # Batch review tab
         batch_tab = QWidget()
         batch_layout = QVBoxLayout(batch_tab)
 
         self.batch_input = QTextEdit()
         self.batch_input.setPlaceholderText("Enter multiple reviews, one per line...")
-        self.batch_input.setStyleSheet(f"""
-            QTextEdit {{
-                background: {COLORS['card']};
-                color: {COLORS['foreground']};
-                border: 1px solid {COLORS['secondary']};
-                border-radius: 5px;
-                padding: 10px;
-                min-height: 150px;
-            }}
-        """)
         batch_layout.addWidget(self.batch_input)
 
         batch_btn = QPushButton("Analyze Batch")
-        batch_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {COLORS['primary']};
-                color: white;
-                border: none;
-                border-radius: 5px;
-                padding: 10px;
-                font-weight: bold;
-            }}
-            QPushButton:hover {{
-                background: {COLORS['secondary']};
-            }}
-        """)
         batch_btn.clicked.connect(self.analyze_batch)
         batch_layout.addWidget(batch_btn)
 
-        input_tabs.addTab(batch_tab, "Batch Processing")
+        self.input_tabs.addTab(single_tab, "Single")
+        self.input_tabs.addTab(batch_tab, "Batch")
+        left_layout.addWidget(self.input_tabs)
 
-        left_layout.addWidget(input_tabs)
-
-        # File import section
-        file_frame = QFrame()
-        file_frame.setFrameShape(QFrame.StyledPanel)
-        file_frame.setStyleSheet(f"background: {COLORS['card']}; border-radius: 5px; padding: 10px;")
-        file_layout = QVBoxLayout(file_frame)
-
-        file_label = QLabel("Import Reviews from File:")
-        file_label.setStyleSheet(f"color: {COLORS['accent']};")
-        file_layout.addWidget(file_label)
+        # File import group
+        file_group = QGroupBox("Import Reviews")
+        file_layout = QVBoxLayout()
 
         import_btn = QPushButton("Choose File")
-        import_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {COLORS['secondary']};
-                color: white;
-                border: none;
-                border-radius: 5px;
-                padding: 8px;
-            }}
-            QPushButton:hover {{
-                background: {COLORS['primary']};
-            }}
-        """)
         import_btn.clicked.connect(self.import_reviews)
         file_layout.addWidget(import_btn)
 
-        left_layout.addWidget(file_frame)
+        file_group.setLayout(file_layout)
+        left_layout.addWidget(file_group)
 
-        # Add some spacing
+        # Model status
+        self.model_status = QLabel("Model Status: Loading...")
+        left_layout.addWidget(self.model_status)
+
         left_layout.addStretch()
 
-        # Right panel - Results and visualization
+        # Right panel - Results
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(5, 5, 5, 5)
 
-        # Results tabs
-        self.results_tabs = QTabWidget()
+        # Results stacked widget
+        self.results_stack = QStackedWidget()
 
-        # Single result tab
-        self.single_result_tab = QWidget()
-        single_result_layout = QVBoxLayout(self.single_result_tab)
+        # Single result view
+        single_result = QWidget()
+        single_result_layout = QVBoxLayout(single_result)
 
-        self.result_card = QFrame()
-        self.result_card.setFrameShape(QFrame.StyledPanel)
-        self.result_card.setStyleSheet(f"""
-            QFrame {{
-                background: {COLORS['card']};
-                border-radius: 10px;
-                padding: 20px;
-            }}
-        """)
-
-        card_layout = QVBoxLayout(self.result_card)
-
-        self.result_header = QLabel("Analysis Results")
-        self.result_header.setStyleSheet(f"color: {COLORS['accent']}; font-size: 16px; font-weight: bold;")
-        card_layout.addWidget(self.result_header)
-
-        # Form layout for results
-        form_layout = QFormLayout()
-        form_layout.setLabelAlignment(Qt.AlignLeft)
+        result_group = QGroupBox("Analysis Results")
+        result_layout = QFormLayout()
 
         self.rating_label = QLabel()
         self.sentiment_label = QLabel()
         self.confidence_label = QLabel()
 
-        form_layout.addRow("Predicted Rating:", self.rating_label)
-        form_layout.addRow("Sentiment:", self.sentiment_label)
-        form_layout.addRow("Confidence:", self.confidence_label)
+        result_layout.addRow("Rating:", self.rating_label)
+        result_layout.addRow("Sentiment:", self.sentiment_label)
+        result_layout.addRow("Confidence:", self.confidence_label)
 
-        card_layout.addLayout(form_layout)
+        result_group.setLayout(result_layout)
+        single_result_layout.addWidget(result_group)
+        self.results_stack.addWidget(single_result)
 
-        # Sentiment visualization
-        self.sentiment_visual = QLabel()
-        self.sentiment_visual.setAlignment(Qt.AlignCenter)
-        card_layout.addWidget(self.sentiment_visual)
+        # Batch result view
+        batch_result = QWidget()
+        batch_result_layout = QVBoxLayout(batch_result)
 
-        single_result_layout.addWidget(self.result_card)
-
-        self.results_tabs.addTab(self.single_result_tab, "Single Analysis")
-
-        # Batch results tab
-        self.batch_result_tab = QWidget()
-        batch_result_layout = QVBoxLayout(self.batch_result_tab)
-
-        # Stats card
-        self.stats_card = QFrame()
-        self.stats_card.setFrameShape(QFrame.StyledPanel)
-        self.stats_card.setStyleSheet(f"""
-            QFrame {{
-                background: {COLORS['card']};
-                border-radius: 10px;
-                padding: 20px;
-            }}
-        """)
-
-        stats_layout = QVBoxLayout(self.stats_card)
-
-        self.stats_header = QLabel("Batch Statistics")
-        self.stats_header.setStyleSheet(f"color: {COLORS['accent']}; font-size: 16px; font-weight: bold;")
-        stats_layout.addWidget(self.stats_header)
-
-        # Stats form
-        self.stats_form = QFormLayout()
-        self.stats_form.setLabelAlignment(Qt.AlignLeft)
+        stats_group = QGroupBox("Batch Statistics")
+        stats_layout = QFormLayout()
 
         self.avg_rating_label = QLabel()
         self.positive_pct_label = QLabel()
@@ -252,41 +287,25 @@ class SentimentAnalysisApp(QMainWindow):
         self.negative_pct_label = QLabel()
         self.total_reviews_label = QLabel()
 
-        self.stats_form.addRow("Average Rating:", self.avg_rating_label)
-        self.stats_form.addRow("Positive Reviews:", self.positive_pct_label)
-        self.stats_form.addRow("Neutral Reviews:", self.neutral_pct_label)
-        self.stats_form.addRow("Negative Reviews:", self.negative_pct_label)
-        self.stats_form.addRow("Total Reviews:", self.total_reviews_label)
+        stats_layout.addRow("Avg Rating:", self.avg_rating_label)
+        stats_layout.addRow("Positive:", self.positive_pct_label)
+        stats_layout.addRow("Neutral:", self.neutral_pct_label)
+        stats_layout.addRow("Negative:", self.negative_pct_label)
+        stats_layout.addRow("Total:", self.total_reviews_label)
 
-        stats_layout.addLayout(self.stats_form)
-
-        batch_result_layout.addWidget(self.stats_card)
+        stats_group.setLayout(stats_layout)
+        batch_result_layout.addWidget(stats_group)
 
         # Visualization
-        self.figure = plt.figure()
+        self.figure = Figure(facecolor='#353535' if self.dark_mode else 'white')
         self.canvas = FigureCanvas(self.figure)
+        self.toolbar = NavigationToolbar2QT(self.canvas, self)
+        batch_result_layout.addWidget(self.toolbar)
         batch_result_layout.addWidget(self.canvas)
 
-        self.results_tabs.addTab(self.batch_result_tab, "Batch Results")
+        self.results_stack.addWidget(batch_result)
 
-        # Review list tab
-        self.review_list_tab = QWidget()
-        review_list_layout = QVBoxLayout(self.review_list_tab)
-
-        self.review_list = QListWidget()
-        self.review_list.setStyleSheet(f"""
-            QListWidget {{
-                background: {COLORS['card']};
-                color: {COLORS['foreground']};
-                border: 1px solid {COLORS['secondary']};
-                border-radius: 5px;
-            }}
-        """)
-        review_list_layout.addWidget(self.review_list)
-
-        self.results_tabs.addTab(self.review_list_tab, "Review Details")
-
-        right_layout.addWidget(self.results_tabs)
+        right_layout.addWidget(self.results_stack)
 
         # Add panels to splitter
         splitter.addWidget(left_panel)
@@ -298,84 +317,185 @@ class SentimentAnalysisApp(QMainWindow):
         # Status bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage("Ready", 3000)
+        self.status_bar.showMessage("Ready")
 
-        # Apply dark theme
-        self.setStyleSheet(f"""
-            QMainWindow {{
-                background: {COLORS['background']};
-                color: {COLORS['foreground']};
-            }}
-            QTabWidget::pane {{
-                border: 1px solid {COLORS['secondary']};
-                border-radius: 5px;
-                padding: 5px;
-                background: {COLORS['background']};
-            }}
-            QTabBar::tab {{
-                background: {COLORS['card']};
-                color: {COLORS['foreground']};
-                padding: 8px;
-                border-top-left-radius: 5px;
-                border-top-right-radius: 5px;
-                margin-right: 2px;
-            }}
-            QTabBar::tab:selected {{
-                background: {COLORS['primary']};
-                color: white;
-            }}
-        """)
+        # Menu bar
+        self.create_menu()
 
+        # Apply initial style
+        self.update_style()
+
+    def create_menu(self):
+        menubar = self.menuBar()
+
+        # File menu
+        file_menu = menubar.addMenu("File")
+
+        export_action = file_menu.addAction("Export Results")
+        export_action.triggered.connect(self.export_results)
+
+        exit_action = file_menu.addAction("Exit")
+        exit_action.triggered.connect(self.close)
+
+        # View menu
+        view_menu = menubar.addMenu("View")
+
+        history_action = view_menu.addAction("History")
+        history_action.triggered.connect(self.show_history)
+
+        dashboard_action = view_menu.addAction("Dashboard")
+        dashboard_action.triggered.connect(self.show_dashboard)
+
+    def toggle_theme(self):
+        self.dark_mode = not self.dark_mode
+        self.update_style()
+
+    def update_style(self):
+        ModernStyle.setup(QApplication.instance(), self.dark_mode)
+        self.setStyleSheet(ModernStyle.get_stylesheet(self.dark_mode))
+
+        # Update matplotlib figure background
+        self.figure.set_facecolor('#353535' if self.dark_mode else 'white')
+        if hasattr(self, 'canvas'):
+            self.canvas.draw()
     def load_models(self):
-        """Load the sentiment analysis models"""
         try:
             self.analyzer = SentimentAnalyzer(
                 model_path="../models/sentiment_model_fr.pkl",
                 vectorizer_path="../models/tfidf_vectorizer_fr.pkl"
             )
-            self.model_status.setText("Model Status: Loaded Successfully")
-            self.model_status.setStyleSheet(f"color: {COLORS['positive']};")
+            self.model_status.setText("Model Status: Loaded")
+            QTimer.singleShot(3000, lambda: self.status_bar.showMessage("Models loaded successfully"))
         except Exception as e:
-            self.model_status.setText("Model Status: Failed to Load")
-            self.model_status.setStyleSheet(f"color: {COLORS['negative']};")
+            self.model_status.setText("Model Status: Failed")
             QMessageBox.critical(self, "Error", f"Failed to load models: {str(e)}")
 
-    def analyze_single_review(self):
-        """Analyze a single review text"""
-        if not self.analyzer:
-            QMessageBox.warning(self, "Warning", "Models not loaded yet!")
+    def show_dashboard(self):
+        """Create a comprehensive analytics dashboard"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Analytics Dashboard")
+        dialog.resize(1000, 700)
+
+        layout = QVBoxLayout()
+        tab_widget = QTabWidget()
+
+        # Tab 1: Key Metrics
+        metrics_tab = QWidget()
+        metrics_layout = QVBoxLayout()
+
+        # Create metrics cards
+        metrics_grid = QHBoxLayout()
+
+        # Card 1: Sentiment Distribution
+        card1 = QFrame()
+        card1.setStyleSheet(f"background: {COLORS['card']}; border-radius: 10px;")
+        card1_layout = QVBoxLayout(card1)
+
+        # Add a modern chart
+        chart = QChart()
+        chart.setTitle("Sentiment Distribution")
+        chart.setAnimationOptions(QChart.SeriesAnimations)
+
+        # Sample data - replace with your actual data
+        series = QBarSeries()
+        set_positive = QBarSet("Positive")
+        set_neutral = QBarSet("Neutral")
+        set_negative = QBarSet("Negative")
+
+        # Get real data from analyzer
+        if self.history_data:
+            pos = sum(1 for d in self.history_data if d['sentiment'] == 'positive')
+            neu = sum(1 for d in self.history_data if d['sentiment'] == 'neutral')
+            neg = sum(1 for d in self.history_data if d['sentiment'] == 'negative')
+            total = max(1, len(self.history_data))
+
+            set_positive.append(pos / total * 100)
+            set_neutral.append(neu / total * 100)
+            set_negative.append(neg / total * 100)
+
+        series.append(set_positive)
+        series.append(set_neutral)
+        series.append(set_negative)
+
+        chart.addSeries(series)
+        chart.createDefaultAxes()
+        chart.legend().setVisible(True)
+
+        chart_view = QChartView(chart)
+        card1_layout.addWidget(chart_view)
+        metrics_grid.addWidget(card1)
+
+        # Add more cards similarly...
+        metrics_layout.addLayout(metrics_grid)
+        metrics_tab.setLayout(metrics_layout)
+        tab_widget.addTab(metrics_tab, "Key Metrics")
+
+        # Tab 2: History Log
+        history_tab = QWidget()
+        history_layout = QVBoxLayout()
+        self.history_table = QTableWidget()
+        self.history_table.setColumnCount(4)
+        self.history_table.setHorizontalHeaderLabels(["Date", "Rating", "Sentiment", "Preview"])
+        history_layout.addWidget(self.history_table)
+        history_tab.setLayout(history_layout)
+        tab_widget.addTab(history_tab, "History Log")
+
+        layout.addWidget(tab_widget)
+        dialog.setLayout(layout)
+        dialog.exec_()
+
+        # NEW FEATURE 2: Export Capability
+
+
+    def export_results(self):
+        """Export analysis results to CSV/Excel"""
+        if not self.history_data:
+            QMessageBox.warning(self, "No Data", "No analysis history to export")
             return
 
-        text = self.review_input.toPlainText().strip()
-        if not text:
-            QMessageBox.warning(self, "Warning", "Please enter some text to analyze!")
-            return
+        options = QFileDialog.Options()
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save Results", "",
+            "CSV Files (*.csv);;Excel Files (*.xlsx)",
+            options=options)
 
+        if path:
+            try:
+                df = pd.DataFrame(self.history_data)
+                if path.endswith('.xlsx'):
+                    df.to_excel(path, index=False)
+                else:
+                    df.to_csv(path, index=False)
+                QMessageBox.information(self, "Success", f"Exported {len(df)} records")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Export failed: {str(e)}")
+
+    def _update_result_display(self, result):
+        """Update the results display with analysis results"""
         try:
-            result = self.analyzer.analyze_sentiment(text)
-
-            # Update UI with results
+            # Update rating display
             self.rating_label.setText(f"{result['rating']:.1f} ★")
-            self.sentiment_label.setText(result['sentiment'].capitalize())
-            self.confidence_label.setText(f"{result['confidence'] * 100:.1f}%")
 
-            # Style based on sentiment
+            # Update sentiment with color coding
+            sentiment = result['sentiment'].capitalize()
+            self.sentiment_label.setText(sentiment)
+
+            # Set sentiment color
             sentiment_color = {
                 'positive': COLORS['positive'],
                 'neutral': COLORS['neutral'],
                 'negative': COLORS['negative']
-            }[result['sentiment']]
+            }.get(result['sentiment'], COLORS['foreground'])
 
             self.sentiment_label.setStyleSheet(f"color: {sentiment_color}; font-weight: bold;")
 
-            # Create a simple visualization
-            pixmap = QPixmap(300, 50)
-            pixmap.fill(QColor(COLORS['card']))
+            # Update confidence
+            self.confidence_label.setText(f"{result['confidence'] * 100:.1f}%")
 
-            # Show rating as stars
+            # Create star rating visualization
             stars = ""
             full_stars = int(result['rating'])
-            half_star = result['rating'] - full_stars >= 0.5
+            half_star = (result['rating'] - full_stars) >= 0.5
 
             stars = "★" * full_stars
             if half_star:
@@ -384,11 +504,74 @@ class SentimentAnalysisApp(QMainWindow):
 
             self.rating_label.setText(f"{stars} ({result['rating']:.1f})")
 
-            self.results_tabs.setCurrentIndex(0)
+        except Exception as e:
+            logger.error(f"Error updating display: {str(e)}")
+            QMessageBox.warning(self, "Display Error", f"Could not update results: {str(e)}")
+
+    def analyze_single_review(self):
+        try:
+            text = self.review_input.toPlainText().strip()
+            if not text:
+                QMessageBox.warning(self, "Warning", "Please enter some text to analyze!")
+                return
+
+            result = self.analyzer.analyze_sentiment(text)
+
+            # Store in history
+            record = {
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "rating": result['rating'],
+                "sentiment": result['sentiment'],
+                "text": text[:100] + "..." if len(text) > 100 else text,
+                "confidence": result['confidence']
+            }
+            self.history_data.append(record)
+
+            # Update UI
+            self.rating_label.setText(f"{result['rating']:.1f} ★")
+            self.sentiment_label.setText(result['sentiment'].capitalize())
+            self.confidence_label.setText(f"{result['confidence']:.1%}")
+
+            # Set sentiment color
+            color = {
+                'positive': '#6EE7B7',
+                'neutral': '#FBD38D',
+                'negative': '#FCA5A5'
+            }.get(result['sentiment'], 'white')
+            self.sentiment_label.setStyleSheet(f"color: {color}; font-weight: bold;")
+
+            self.results_stack.setCurrentIndex(0)
             self.status_bar.showMessage("Analysis completed", 3000)
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Analysis failed: {str(e)}")
+
+    def show_history(self):
+        """Display analysis history in a table"""
+        if not self.history_data:
+            QMessageBox.information(self, "History", "No analysis history yet")
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Analysis History")
+        dialog.resize(800, 600)
+
+        layout = QVBoxLayout()
+        table = QTableWidget()
+        table.setColumnCount(5)
+        table.setHorizontalHeaderLabels(["Timestamp", "Rating", "Sentiment", "Confidence", "Text Preview"])
+
+        table.setRowCount(len(self.history_data))
+        for i, record in enumerate(self.history_data):
+            table.setItem(i, 0, QTableWidgetItem(record['timestamp']))
+            table.setItem(i, 1, QTableWidgetItem(str(record['rating'])))
+            table.setItem(i, 2, QTableWidgetItem(record['sentiment'].capitalize()))
+            table.setItem(i, 3, QTableWidgetItem(f"{record['confidence']:.1%}"))
+            table.setItem(i, 4, QTableWidgetItem(record['text']))
+
+        layout.addWidget(table)
+        dialog.setLayout(layout)
+        dialog.exec_()
 
     def analyze_batch(self):
         """Analyze multiple reviews at once"""
@@ -467,12 +650,11 @@ class SentimentAnalysisApp(QMainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-
-    # Set modern style
     app.setStyle('Fusion')
 
-    # Create and show the main window
+    # Apply modern style
+    ModernStyle.setup(app, dark_mode=True)
+
     window = SentimentAnalysisApp()
     window.show()
-
     sys.exit(app.exec_())
