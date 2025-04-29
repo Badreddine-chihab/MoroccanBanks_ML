@@ -274,7 +274,7 @@ if __name__ == '__main__':
         "Très déçu par la qualité, je ne recommande pas",
         "Livraison rapide et produit conforme à mes attentes",
         "Médiocre, ne correspond pas à la description",
-        "Excellent. Très bonne banque !Remarque les esprits chagrins qui mettent 1 étoile à wafabank  doivent savoir que wafabank meilleure banque au Maroc et plus n'accueille pas n'importe qui avec le sourire pourdes personnes peu claires avec des rentrées d'argent hypothétiques et des projets fumeux."
+        "Excellent. Très bonne banque !Remarque sur le sourire pourdes personnes peu claires avec des rentrées d'argent hypothétiques et des projets fumeux."
     ]
 
     for review in test_reviews:
