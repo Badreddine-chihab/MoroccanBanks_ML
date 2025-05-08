@@ -1,30 +1,22 @@
 import sys
-import os
-from PyQt5.QtChart import QChart, QChartView, QPieSeries, QBarSeries, QBarSet, QValueAxis, QBarCategoryAxis
+
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                             QTextEdit, QPushButton, QComboBox, QTabWidget, QFormLayout, QListWidget,
-                             QMessageBox, QFileDialog, QStatusBar, QFrame, QSplitter, QDialog,
-                             QTableWidget, QTableWidgetItem, QGroupBox, QStackedWidget, QToolBar,
-                             QAction, QSizePolicy, QSpacerItem, QScrollArea, QGridLayout)
-from PyQt5.QtCore import Qt, QSize, QTimer, QMargins, QPropertyAnimation, QEasingCurve
-from PyQt5.QtGui import QFont, QIcon, QPixmap, QColor, QPalette, QKeySequence, QPainter, QBrush
+                             QTextEdit, QPushButton, QTabWidget,
+                             QMessageBox, QFileDialog, QStatusBar, QFrame, QSplitter,
+                             QTableWidget, QTableWidgetItem,
+                             QAction, QDateEdit)
+from PyQt5.QtCore import Qt,QDate
+from PyQt5.QtGui import QColor, QPalette,QIcon
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
-import numpy as np
 from predict_star import SentimentAnalyzer
-import logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class ModernStyle:
-    """Modern UI styling for the application"""
-
     @staticmethod
     def setup(app, dark_mode=True):
         app.setStyle("Fusion")
@@ -73,31 +65,30 @@ class AnalysisResultWidget(QWidget):
         layout.setSpacing(20)
 
         # Rating card
-        self.rating_card = self.create_card("⭐ Rating", "0.0", "Enter text to analyze")
+        self.rating_card = self.create_card("⭐ Rating", "NAN", "Enter text to analyze")
 
         # Sentiment card
-        self.sentiment_card = self.create_card("😊 Sentiment", "Neutral", "Waiting for input...")
+        self.sentiment_card = self.create_card("😊 Sentiment", "NAN", "Waiting for input...")
 
         layout.addWidget(self.rating_card)
         layout.addWidget(self.sentiment_card)
         layout.addStretch()
 
     def update_results(self, result):
-        """Update results display"""
+
         # Update rating card
         rating_label = self.rating_card.findChild(QLabel, "value_label")
         rating_label.setText(f"{result['rating']:.1f}")
 
-        # Update sentiment card
+
         sentiment_label = self.sentiment_card.findChild(QLabel, "value_label")
         sentiment_label.setText(result['sentiment'].capitalize())
 
-        # Set color based on sentiment
+        #based on sentiment
         color = "#6EE7B7" if result['sentiment'] == 'positive' else "#FCA5A5"
         sentiment_label.setStyleSheet(f"color: {color};")
 
     def create_card(self, title, value, placeholder=""):
-        """Create a styled result card"""
         card = QFrame()
         card.setFrameShape(QFrame.StyledPanel)
         card.setStyleSheet("""
@@ -132,8 +123,138 @@ class AnalysisResultWidget(QWidget):
         return card
 
 
+class HistoryWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.history_data = []
+        self.setup_ui()
+
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+
+        # Filter controls
+        filter_layout = QHBoxLayout()
+
+        self.date_from = QDateEdit()
+        self.date_from.setCalendarPopup(True)
+        self.date_from.setDate(QDate.currentDate().addDays(-7))
+        self.date_to = QDateEdit()
+        self.date_to.setCalendarPopup(True)
+        self.date_to.setDate(QDate.currentDate())
+
+        filter_btn = QPushButton("Filter")
+        filter_btn.clicked.connect(self.filter_history)
+
+        filter_layout.addWidget(QLabel("From:"))
+        filter_layout.addWidget(self.date_from)
+        filter_layout.addWidget(QLabel("To:"))
+        filter_layout.addWidget(self.date_to)
+        filter_layout.addWidget(filter_btn)
+        filter_layout.addStretch()
+
+        layout.addLayout(filter_layout)
+
+        # History table
+        self.history_table = QTableWidget()
+        self.history_table.setColumnCount(5)
+        self.history_table.setHorizontalHeaderLabels(["Date", "Review", "Rating", "Sentiment", "Confidence"])
+        self.history_table.horizontalHeader().setStretchLastSection(True)
+        self.history_table.verticalHeader().setVisible(False)
+        self.history_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.history_table.setSelectionBehavior(QTableWidget.SelectRows)
+
+        layout.addWidget(self.history_table)
+
+        # History visualization
+        self.history_figure = plt.figure(facecolor='#353535')
+        self.history_canvas = FigureCanvas(self.history_figure)
+        self.history_toolbar = NavigationToolbar(self.history_canvas, self)
+
+        layout.addWidget(self.history_toolbar)
+        layout.addWidget(self.history_canvas)
+
+    def update_history(self, history_data):
+
+        self.history_data = history_data
+        self.filter_history()
+
+    def filter_history(self):
+
+        from_date = self.date_from.date().toPyDate()
+        to_date = self.date_to.date().toPyDate() + timedelta(days=1)  # Include the end date
+
+        filtered_data = [
+            item for item in self.history_data
+            if from_date <= datetime.strptime(item['timestamp'], "%Y-%m-%d %H:%M:%S").date() < to_date
+        ]
+
+
+        self.history_table.setRowCount(len(filtered_data))
+        for row, item in enumerate(filtered_data):
+            self.history_table.setItem(row, 0, QTableWidgetItem(item['timestamp']))
+            self.history_table.setItem(row, 1, QTableWidgetItem(item['text']))
+            self.history_table.setItem(row, 2, QTableWidgetItem(f"{item['rating']:.1f}"))
+            self.history_table.setItem(row, 3, QTableWidgetItem(item['sentiment'].capitalize()))
+            self.history_table.setItem(row, 4, QTableWidgetItem(f"{item['confidence']:.2f}"))
+
+
+        self.update_history_plot(filtered_data)
+
+    def update_history_plot(self, filtered_data):
+
+        self.history_figure.clear()
+
+        if not filtered_data:
+            ax = self.history_figure.add_subplot(111)
+            ax.text(0.5, 0.5, 'No data in selected date range',
+                    ha='center', va='center', color='white')
+            ax.set_facecolor('#353535')
+            self.history_canvas.draw()
+            return
+
+
+        df = pd.DataFrame(filtered_data)
+        df['date'] = pd.to_datetime(df['timestamp']).dt.date
+        daily_stats = df.groupby('date').agg({
+            'rating': 'mean',
+            'sentiment': lambda x: (x == 'positive').mean()
+        }).reset_index()
+
+
+        ax = self.history_figure.add_subplot(111)
+
+
+        ax.plot(daily_stats['date'], daily_stats['rating'],
+                marker='o', color='#6EE7B7', label='Average Rating')
+        ax.set_ylabel('Average Rating', color='#6EE7B7')
+        ax.tick_params(axis='y', labelcolor='#6EE7B7')
+        ax.set_ylim(0, 5)
+
+
+        ax2 = ax.twinx()
+        ax2.plot(daily_stats['date'], daily_stats['sentiment'] * 100,
+                 marker='s', color='#93C5FD', label='Positive %')
+        ax2.set_ylabel('Positive Sentiment %', color='#93C5FD')
+        ax2.tick_params(axis='y', labelcolor='#93C5FD')
+        ax2.set_ylim(0, 100)
+
+
+        ax.set_title('Review History Trend', color='white')
+        ax.set_facecolor('#353535')
+        ax.grid(True, color='#555555', linestyle='--')
+        ax.xaxis.label.set_color('white')
+        ax.tick_params(axis='x', colors='white')
+
+
+        lines, labels = ax.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax.legend(lines + lines2, labels + labels2, loc='upper left')
+
+        self.history_canvas.draw()
+
+
 class BatchAnalysisWidget(QWidget):
-    """Widget for batch analysis results"""
+
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -142,7 +263,7 @@ class BatchAnalysisWidget(QWidget):
     def setup_ui(self):
         layout = QVBoxLayout(self)
 
-        # Stats cards
+
         cards_layout = QHBoxLayout()
         self.avg_rating_card = self.create_stat_card("Average Rating", "0.0")
         self.positive_card = self.create_stat_card("Positive", "0%")
@@ -154,13 +275,13 @@ class BatchAnalysisWidget(QWidget):
 
         layout.addLayout(cards_layout)
 
-        # Visualization tabs
+
         self.viz_tabs = QTabWidget()
         self.setup_visualization_tabs()
         layout.addWidget(self.viz_tabs)
 
     def setup_visualization_tabs(self):
-        """Setup visualization tabs"""
+
         # Pie chart tab
         pie_tab = QWidget()
         pie_layout = QVBoxLayout(pie_tab)
@@ -172,17 +293,17 @@ class BatchAnalysisWidget(QWidget):
         self.viz_tabs.addTab(pie_tab, "Distribution")
 
     def update_results(self, stats):
-        """Update batch results display"""
-        # Update cards
+
+
         self.avg_rating_card.findChild(QLabel, "value_label").setText(f"{stats['avg_rating']:.1f}")
         self.positive_card.findChild(QLabel, "value_label").setText(f"{stats['positive_pct']:.1f}%")
         self.negative_card.findChild(QLabel, "value_label").setText(f"{stats['negative_pct']:.1f}%")
 
-        # Update pie chart
+
         self.update_pie_chart(stats)
 
     def update_pie_chart(self, stats):
-        """Update the pie chart visualization"""
+
         self.pie_figure.clear()
         ax = self.pie_figure.add_subplot(111)
 
@@ -197,7 +318,7 @@ class BatchAnalysisWidget(QWidget):
         self.pie_canvas.draw()
 
     def create_stat_card(self, title, value):
-        """Create a stat card"""
+
         card = QFrame()
         card.setFrameShape(QFrame.StyledPanel)
         card.setStyleSheet("""
@@ -229,7 +350,7 @@ class BatchAnalysisWidget(QWidget):
 
 
 class SentimentAnalysisApp(QMainWindow):
-    """Main application window"""
+
 
     def __init__(self):
         super().__init__()
@@ -240,9 +361,11 @@ class SentimentAnalysisApp(QMainWindow):
         self.load_models()
 
     def setup_ui(self):
-        """Initialize UI components"""
-        self.setWindowTitle("Sentiment Analysis")
-        self.setGeometry(100, 100, 1000, 700)
+
+        self.setWindowTitle("Bank Review Sentiment Analysis")
+        self.setWindowIcon(QIcon('../assets/oujda.png'))
+
+        self.setGeometry(100, 100, 1200, 800)
 
         # Central widget
         central_widget = QWidget()
@@ -273,13 +396,17 @@ class SentimentAnalysisApp(QMainWindow):
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
 
-        # Results stack
-        self.results_stack = QStackedWidget()
+        # Results tabs
+        self.results_tabs = QTabWidget()
         self.single_result_widget = AnalysisResultWidget()
         self.batch_result_widget = BatchAnalysisWidget()
-        self.results_stack.addWidget(self.single_result_widget)
-        self.results_stack.addWidget(self.batch_result_widget)
-        right_layout.addWidget(self.results_stack)
+        self.history_widget = HistoryWidget()
+
+        self.results_tabs.addTab(self.single_result_widget, "Single Analysis")
+        self.results_tabs.addTab(self.batch_result_widget, "Batch Analysis")
+        self.results_tabs.addTab(self.history_widget, "Review History")
+
+        right_layout.addWidget(self.results_tabs)
 
         # Add panels to splitter
         splitter.addWidget(left_panel)
@@ -294,13 +421,13 @@ class SentimentAnalysisApp(QMainWindow):
         self.setup_menu_bar()
 
     def setup_input_tabs(self):
-        """Setup input tabs"""
+
         # Single review tab
         single_tab = QWidget()
         single_layout = QVBoxLayout(single_tab)
 
         self.review_input = QTextEdit()
-        self.review_input.setPlaceholderText("Enter review text...")
+        self.review_input.setPlaceholderText("Enter bank review text...")
         single_layout.addWidget(self.review_input)
 
         analyze_btn = QPushButton("Analyze")
@@ -312,7 +439,7 @@ class SentimentAnalysisApp(QMainWindow):
         batch_layout = QVBoxLayout(batch_tab)
 
         self.batch_input = QTextEdit()
-        self.batch_input.setPlaceholderText("Enter one review per line...")
+        self.batch_input.setPlaceholderText("Enter one bank review per line...")
         batch_layout.addWidget(self.batch_input)
 
         batch_btn = QPushButton("Analyze Batch")
@@ -333,6 +460,10 @@ class SentimentAnalysisApp(QMainWindow):
         export_action = QAction("Export Results", self)
         export_action.triggered.connect(self.export_results)
         file_menu.addAction(export_action)
+
+        clear_history_action = QAction("Clear History", self)
+        clear_history_action.triggered.connect(self.clear_history)
+        file_menu.addAction(clear_history_action)
 
         exit_action = QAction("Exit", self)
         exit_action.triggered.connect(self.close)
@@ -368,17 +499,19 @@ class SentimentAnalysisApp(QMainWindow):
             result = self.analyzer.analyze_review(text)
 
             # Store in history
-            self.history.append({
+            history_entry = {
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "text": text[:100] + "..." if len(text) > 100 else text,
                 "rating": result["rating"],
                 "sentiment": result["sentiment"],
                 "confidence": result["confidence"]
-            })
+            }
+            self.history.append(history_entry)
 
             # Update UI
             self.single_result_widget.update_results(result)
-            self.results_stack.setCurrentIndex(0)
+            self.results_tabs.setCurrentIndex(0)
+            self.history_widget.update_history(self.history)
             self.status_bar.showMessage("Analysis completed", 3000)
 
         except Exception as e:
@@ -426,7 +559,8 @@ class SentimentAnalysisApp(QMainWindow):
 
             # Update UI
             self.batch_result_widget.update_results(stats)
-            self.results_stack.setCurrentIndex(1)
+            self.results_tabs.setCurrentIndex(1)
+            self.history_widget.update_history(self.history)
             self.status_bar.showMessage(f"Analyzed {total} reviews", 3000)
 
         except Exception as e:
@@ -450,12 +584,25 @@ class SentimentAnalysisApp(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Export failed: {str(e)}")
 
+    def clear_history(self):
+        """Clear the analysis history"""
+        reply = QMessageBox.question(
+            self, 'Clear History',
+            'Are you sure you want to clear all review history?',
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
+        if reply == QMessageBox.Yes:
+            self.history = []
+            self.history_widget.update_history(self.history)
+            self.status_bar.showMessage("History cleared", 3000)
+
     def show_about(self):
         """Show about dialog"""
         QMessageBox.about(self, "About",
-                          "Sentiment Analysis Tool\n\n"
-                          "Version 1.0\n"
-                          "© 2023")
+                          "Bank Review Sentiment Analysis\n\n"
+                          "Badr Chihab && Amine Chakri\n"
+                          "©Bank Customer Feedback Tool\n"
+                          "ENSAO")
 
 
 if __name__ == '__main__':

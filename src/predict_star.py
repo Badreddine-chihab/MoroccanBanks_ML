@@ -14,7 +14,7 @@ class SentimentAnalyzer:
 
         # Define thresholds for mapping rating to sentiment
         self.thresholds = {
-            'positive': 4.0,
+            'positive': 3.5,
             'neutral': 2.5,
             'negative': 0.0
         }
@@ -23,9 +23,7 @@ class SentimentAnalyzer:
         return self.vectorizer.transform([text])
 
     def predict_rating(self, text: str) -> float:
-        """
-        Predict the star rating of a review.
-        """
+
         try:
             tfidf = self.transform_text(text)
             rating = self.model.predict(tfidf)[0]
@@ -35,9 +33,7 @@ class SentimentAnalyzer:
             return 3.0  # Default neutral rating
 
     def predict_sentiment(self, rating: float) -> str:
-        """
-        Determine sentiment label based on predicted rating.
-        """
+
         if rating >= self.thresholds['positive']:
             return "positive"
         elif rating >= self.thresholds['neutral']:
