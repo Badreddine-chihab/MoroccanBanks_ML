@@ -1,8 +1,8 @@
 import joblib
 
 # Load
-sentiment_model = joblib.load("../models/sentiment_model_fr.pkl")
-tfidf_vectorizer = joblib.load("../models/tfidf_vectorizer_fr.pkl")
+sentiment_model = joblib.load("../models/model_sentiment.pkl")
+tfidf_vectorizer = joblib.load("../models/vectorizer.pkl")
 
 
 def predict_sentiment(sample):
@@ -14,4 +14,5 @@ def predict_sentiment(sample):
     sentiment_label = "Positif" if sentiment_pred == 1 else "Négatif"
     return sentiment_label
 
+print(predict_sentiment("gentils"))
 

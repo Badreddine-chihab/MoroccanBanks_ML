@@ -1,0 +1,7 @@
+Timestamp,Type,Rating,Sentiment,Confidence,Text Preview
+2025-04-20 20:03:58,Single,2.0,negative,0.055999999999999994,null
+2025-04-20 20:04:02,Single,4.0,positive,0.126,trop bien
+2025-04-20 20:04:08,Single,2.5,negative,0.182,je recommende
+2025-04-20 20:04:13,Single,2.5,negative,0.322,je recommende fortement
+2025-04-20 20:04:18,Single,2.5,negative,0.378,je recommende pas fortement
+2025-04-20 20:04:24,Single,4.0,positive,0.5459999999999999,je recommende pas fortement service bon
